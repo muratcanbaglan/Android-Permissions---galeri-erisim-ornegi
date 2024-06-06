@@ -1,0 +1,164 @@
+package com.murat.yemekkitabi.view // Bu kod, 'com.murat.yemekkitabi.view' isimli pakette bulunan dosyaya ait
+
+import android.Manifest // Android manifest dosyasında kullanılan izinleri içe aktarır
+import android.content.Intent // Intent sınıfını içe aktarır, diğer aktiviteleri başlatmak için kullanılır
+import android.content.pm.PackageManager // Paket yöneticisi sınıfını içe aktarır
+import android.graphics.Bitmap // Bitmap sınıfını içe aktarır
+import android.graphics.ImageDecoder // ImageDecoder sınıfını içe aktarır
+import android.net.Uri // Uri sınıfını içe aktarır
+import android.os.Build // Android işletim sistemi sürümü bilgilerini almak için kullanılır
+import android.os.Bundle // Bundle sınıfını içe aktarır, aktivite ve fragment arasında veri taşımak için kullanılır
+import android.provider.MediaStore // MediaStore sınıfını içe aktarır, medya içeriklerine erişim sağlamak için kullanılır
+import androidx.fragment.app.Fragment // Fragment sınıfını içe aktarır
+import android.view.LayoutInflater // LayoutInflater sınıfını içe aktarır, XML dosyalarını View objelerine dönüştürmek için kullanılır
+import android.view.View // View sınıfını içe aktarır
+import android.view.ViewGroup // ViewGroup sınıfını içe aktarır
+import android.widget.Toast // Toast sınıfını içe aktarır, kısa mesaj göstermek için kullanılır
+import androidx.activity.result.ActivityResultLauncher // ActivityResultLauncher sınıfını içe aktarır, aktivite sonuçlarını almak için kullanılır
+import androidx.activity.result.contract.ActivityResultContracts // ActivityResultContracts sınıfını içe aktarır
+import androidx.appcompat.app.AppCompatActivity // AppCompatActivity sınıfını içe aktarır
+import androidx.core.app.ActivityCompat // ActivityCompat sınıfını içe aktarır, izin kontrolü için kullanılır
+import androidx.core.content.ContextCompat // ContextCompat sınıfını içe aktarır, izin kontrolü için kullanılır
+import com.google.android.material.snackbar.Snackbar // Snackbar sınıfını içe aktarır
+import com.murat.yemekkitabi.databinding.FragmentTarifBinding // FragmentTarifBinding sınıfını içe aktarır
+
+class TarifFragment : Fragment() { // TarifFragment adında bir Fragment sınıfı tanımlar
+
+    private var _binding: FragmentTarifBinding? = null // Binding nesnesi için bir değişken tanımlar
+    private val binding get() = _binding!! // Binding nesnesine güvenli erişim sağlar
+    private lateinit var permissionLauncher: ActivityResultLauncher<String> // İzin sonuçlarını almak için bir launcher tanımlar
+    private lateinit var activityResultLauncher: ActivityResultLauncher<Intent> // Aktivite sonuçlarını almak için bir launcher tanımlar
+    private var secilenGorsel: Uri? = null // Seçilen görselin Uri'sini tutmak için bir değişken tanımlar
+    private var secilenBitmap: Bitmap? = null // Seçilen görselin Bitmap'ini tutmak için bir değişken tanımlar
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        registerLauncher() // İzin ve aktivite sonuçlarını almak için launcher'ları kaydeder
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        _binding = FragmentTarifBinding.inflate(inflater, container, false) // XML layout dosyasını inflate eder ve binding nesnesini oluşturur
+        val view = binding.root // Root view'i alır
+        return view // Root view'i döner
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        binding.imageView.setOnClickListener { gorselSec(it) } // imageView'e tıklanınca gorselSec fonksiyonunu çağırır
+        binding.kaydetButton.setOnClickListener { kaydetButton(it) } // kaydetButton'a tıklanınca kaydetButton fonksiyonunu çağırır
+        binding.silButton.setOnClickListener { silButton(it) } // silButton'a tıklanınca silButton fonksiyonunu çağırır
+
+        arguments?.let {
+            val bilgi = TarifFragmentArgs.fromBundle(it).bilgi // Fragment'a gelen argümanları alır
+            if (bilgi == "yeni") {
+                // yeni tarif eklenecek
+                binding.silButton.isEnabled = false // silButton'u devre dışı bırakır
+                binding.kaydetButton.isEnabled = true // kaydetButton'u etkinleştirir
+                binding.isimText.setText("") // isimText'i boş yapar
+                binding.tarifText.setText("") // tarifText'i boş yapar
+            } else {
+                //eski eklenmiş tarif gösteriliyor
+                binding.silButton.isEnabled = true // silButton'u etkinleştirir
+                binding.kaydetButton.isEnabled = false // kaydetButton'u devre dışı bırakır
+            }
+        }
+    }
+
+    fun kaydetButton(view: View) {
+        // Kaydetme işlemleri burada yapılacak
+    }
+
+    fun silButton(view: View) {
+        // Silme işlemleri burada yapılacak
+    }
+
+    fun gorselSec(view: View) {
+        // Android 13 ve sonrası
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
+                // izin verilmedi , izin istenmesi gerekiyor
+                if (ActivityCompat.shouldShowRequestPermissionRationale(requireActivity(), Manifest.permission.READ_MEDIA_IMAGES)) {
+                    // snack bar göstererek tekrardan izin istememiz gerekiyor
+                    Snackbar.make(view, "Galeriye Ulaşıp veya Görsel Seçmemiz Lazım", Snackbar.LENGTH_INDEFINITE).setAction(
+                        "İzin Ver",
+                        View.OnClickListener {
+                            // izin isteyeceğiz
+                            permissionLauncher.launch(Manifest.permission.READ_MEDIA_IMAGES)
+                        }
+                    ).show()
+                } else {
+                    // izin isteyeceğiz
+                    permissionLauncher.launch(Manifest.permission.READ_MEDIA_IMAGES)
+                }
+            } else {
+                // izin verilmiş galeriye gideceğiz
+                val intentToGallery = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+                activityResultLauncher.launch(intentToGallery)
+            }
+        } else { // Android 13 öncesi
+            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                // izin verilmedi , izin istenmesi gerekiyor
+                if (ActivityCompat.shouldShowRequestPermissionRationale(requireActivity(), Manifest.permission.READ_EXTERNAL_STORAGE)) {
+                    // snack bar göstererek tekrardan izin istememiz gerekiyor
+                    Snackbar.make(view, "Galeriye Ulaşıp veya Görsel Seçmemiz Lazım", Snackbar.LENGTH_INDEFINITE).setAction(
+                        "İzin Ver",
+                        View.OnClickListener {
+                            // izin isteyeceğiz
+                            permissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+                        }
+                    ).show()
+                } else {
+                    // izin isteyeceğiz
+                    permissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+                }
+            } else {
+                // izin verilmiş galeriye gideceğiz
+                val intentToGallery = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+                activityResultLauncher.launch(intentToGallery)
+            }
+        }
+    }
+
+    private fun registerLauncher() {
+        activityResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == AppCompatActivity.RESULT_OK) {
+                val intentFromResult = result.data
+                if (intentFromResult != null) {
+                    secilenGorsel = intentFromResult.data
+
+                    try {
+                        if (Build.VERSION.SDK_INT >= 28) {
+                            val source = ImageDecoder.createSource(requireActivity().contentResolver, secilenGorsel!!)
+                            secilenBitmap = ImageDecoder.decodeBitmap(source)
+                            binding.imageView.setImageBitmap(secilenBitmap)
+                        } else {
+                            secilenBitmap = MediaStore.Images.Media.getBitmap(requireActivity().contentResolver, secilenGorsel)
+                            binding.imageView.setImageBitmap(secilenBitmap)
+                        }
+                    } catch (e: Exception) {
+                        println(e.localizedMessage)
+                    }
+                }
+            }
+        }
+
+        permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { result ->
+            if (result) {
+                // izin verildi galeriye gideceğiz
+                val intentToGallery = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+                activityResultLauncher.launch(intentToGallery)
+            } else {
+                // izin verilmedi
+                Toast.makeText(requireContext(), "İzin Alınmadı", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null // Binding nesnesini temizler
+    }
+}
